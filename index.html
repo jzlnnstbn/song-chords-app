@@ -3,79 +3,109 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Song Chords Transposer</title>
+<title>Song Chords App</title>
+
 <style>
     body {
         font-family: Arial, sans-serif;
-        background: #f7f7f7;
-        margin: 0;
-        padding: 20px;
-        color: #333;
+        margin: 0; padding: 0;
+        background: #f4f4f4;
     }
-    h1 {
+    header {
+        background: #6200ea;
+        color: white;
+        padding: 15px;
         text-align: center;
-        margin-bottom: 10px;
+        font-size: 22px;
     }
     .container {
-        max-width: 800px;
-        margin: auto;
-        background: white;
         padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        max-width: 900px;
+        margin: auto;
     }
     textarea {
         width: 100%;
-        height: 180px;
+        height: 160px;
         padding: 10px;
-        font-size: 15px;
         border-radius: 8px;
         border: 1px solid #ccc;
         resize: vertical;
         font-family: monospace;
-    }
-    button, select {
-        padding: 10px 14px;
         font-size: 15px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        margin: 5px;
-    }
-    button {
-        background: #007bff;
-        color: white;
-    }
-    button:hover {
-        background: #0056b3;
     }
     #output {
-        white-space: pre-wrap;
-        background: #fafafa;
-        border: 1px solid #ccc;
+        margin-top: 20px;
+        background: white;
         padding: 15px;
         border-radius: 8px;
-        margin-top: 20px;
-        font-size: 16px;
+        border: 1px solid #ccc;
+        white-space: pre-wrap;
+        font-size: 17px;
     }
     .chord {
         font-weight: bold;
-        color: #d63384;
+        color: #e91e63;
+    }
+    button, select {
+        padding: 10px 14px;
+        border: none;
+        margin: 5px;
+        border-radius: 6px;
+        font-size: 15px;
+        cursor: pointer;
+    }
+    button {
+        background: #6200ea;
+        color: white;
+    }
+    button:hover {
+        background: #4a00c8;
+    }
+    /* SONG LIST */
+    #songList {
+        margin-top: 10px;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+    }
+    .songItem {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        cursor: pointer;
+    }
+    .songItem:hover {
+        background: #eeeeee;
+    }
+    /* CHORD DIAGRAMS */
+    #diagrams {
+        margin-top: 20px;
+        padding: 10px;
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+    }
+    .diagram {
+        display: inline-block;
+        margin: 10px;
+        text-align: center;
     }
 </style>
 </head>
 
 <body>
-<h1>🎸 Song Chords Transposer</h1>
+
+<header>🎸 Song Chords App (Mobile + Chord Diagrams + Song List)</header>
 
 <div class="container">
-    <h3>Enter Song with Chords</h3>
-    <p>Format: Place chords inside brackets → Example: [C] Amazing [G] Grace</p>
 
-    <textarea id="songInput" placeholder="Paste your song here..."></textarea>
+    <h3>Choose Song</h3>
+    <div id="songList"></div>
+
+    <h3>Edit or Paste Song</h3>
+    <textarea id="songInput" placeholder="Paste chords like: [C] Hello [G] world"></textarea>
 
     <br>
-
     <label>Transpose:</label>
     <select id="transposeSelect">
         <option value="0">0 (Original)</option>
@@ -95,20 +125,41 @@
 
     <button onclick="transpose(-1)">▼ -1</button>
     <button onclick="transpose(1)">▲ +1</button>
-    <button onclick="renderSong()">Render / Update</button>
+    <button onclick="renderSong()">Render</button>
 
     <div id="output"></div>
+
+    <h3>Guitar Chord Diagrams</h3>
+    <div id="diagrams"></div>
+
 </div>
 
 <script>
-const originalChords = ["C","C#","Db","D","D#","Eb","E","F","F#","Gb","G","G#","Ab","A","A#","Bb","B"];
+/* ---------------- SONG LIST (Editable) ---------------- */
+const songs = {
+    "Amazing Grace": "[C] Amazing grace how [F] sweet the [C] sound\nThat saved a wretch like [G] me",
+    "Blessed Be Your Name": "[G] Blessed be Your [D] name\nIn the land that is [Em] plentiful",
+    "10,000 Reasons": "[C] Bless the Lord oh my [G] soul\nOh my [D] soul"
+};
+
+const songListDiv = document.getElementById("songList");
+Object.keys(songs).forEach(title => {
+    let div = document.createElement("div");
+    div.className = "songItem";
+    div.innerText = title;
+    div.onclick = () => {
+        document.getElementById("songInput").value = songs[title];
+        renderSong();
+    };
+    songListDiv.appendChild(div);
+});
+
+/* ---------------- CHORD TRANSPOSER ---------------- */
 const sharpScale = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const flatScale  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
 
 function normalizeChord(chord) {
-    if (chord.includes("b")) {
-        return flatScale.indexOf(chord);
-    }
+    if (chord.includes("b")) return flatScale.indexOf(chord);
     return sharpScale.indexOf(chord);
 }
 
@@ -116,35 +167,90 @@ function transposeChord(chord, steps) {
     let base = chord.match(/[A-G][b#]?/);
     if (!base) return chord;
     let rest = chord.replace(base[0], "");
-
     let index = normalizeChord(base[0]);
-    if (index === -1) return chord;
-
+    if (index < 0) return chord;
     let newIndex = (index + steps + 12) % 12;
     return sharpScale[newIndex] + rest;
 }
 
-function renderSong() {
-    let text = document.getElementById("songInput").value;
-    let steps = parseInt(document.getElementById("transposeSelect").value);
-
-    let output = text.replace(/\[([A-G][b#]?(?:m|maj|min|sus|dim|aug|add)?\d*)\]/g, (match, chord) => {
-        return "<span class='chord'>[" + transposeChord(chord, steps) + "]</span>";
-    });
-
-    document.getElementById("output").innerHTML = output;
-}
-
 function transpose(step) {
     let select = document.getElementById("transposeSelect");
-    let current = parseInt(select.value);
-    let next = current + step;
-
-    if (next >= -6 && next <= 6) {
-        select.value = next;
+    let value = parseInt(select.value);
+    let newValue = value + step;
+    if (newValue >= -6 && newValue <= 6) {
+        select.value = newValue;
         renderSong();
     }
 }
+
+/* ---------------- RENDER SONG ---------------- */
+function renderSong() {
+    let input = document.getElementById("songInput").value;
+    let steps = parseInt(document.getElementById("transposeSelect").value);
+
+    let usedChords = new Set();
+
+    let output = input.replace(/\[([A-G][b#]?(?:m|maj|min|sus|dim|aug|add)?\d*)\]/g, (match, chord) => {
+        let t = transposeChord(chord, steps);
+        usedChords.add(t);
+        return `<span class='chord'>[${t}]</span>`;
+    });
+
+    document.getElementById("output").innerHTML = output;
+
+    generateDiagrams([...usedChords]);
+}
+
+/* ---------------- CHORD DIAGRAMS ---------------- */
+const chordShapes = {
+    "C":  "x32010",
+    "G":  "320003",
+    "D":  "xx0232",
+    "A":  "x02220",
+    "E":  "022100",
+    "F":  "133211",
+    "Am": "x02210",
+    "Em": "022000",
+    "Dm": "xx0231"
+};
+
+function generateDiagrams(chords) {
+    let box = document.getElementById("diagrams");
+    box.innerHTML = "";
+
+    chords.forEach(ch => {
+        if (!chordShapes[ch]) return;
+
+        let shape = chordShapes[ch].split("");
+
+        let svg = `<svg width="80" height="120">
+            <text x="40" y="15" font-size="16" text-anchor="middle">${ch}</text>
+            <line x1="20" y1="30" x2="60" y2="30" stroke="black" stroke-width="2" />
+            <line x1="20" y1="30" x2="20" y2="110" stroke="black"/>
+            <line x1="40" y1="30" x2="40" y2="110" stroke="black"/>
+            <line x1="60" y1="30" x2="60" y2="110" stroke="black"/>`;
+
+        shape.forEach((fret, i) => {
+            let x = 20 + i * 20;
+            if (fret === "x") {
+                svg += `<text x="${x}" y="25" font-size="12">x</text>`;
+            } else if (fret === "0") {
+                svg += `<text x="${x}" y="25" font-size="12">o</text>`;
+            } else {
+                let y = 30 + fret * 15;
+                svg += `<circle cx="${x}" cy="${y}" r="6" fill="#6200ea"></circle>`;
+            }
+        });
+
+        svg += "</svg>";
+
+        let div = document.createElement("div");
+        div.className = "diagram";
+        div.innerHTML = svg;
+        box.appendChild(div);
+    });
+}
 </script>
+
 </body>
 </html>
